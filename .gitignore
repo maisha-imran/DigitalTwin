@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+.venv
+venv/
+node_modules/
+dist/
+.DS_Store
+
+# Model artifacts
+backend/saved_models/*.pt
+backend/saved_models/*.pkl
+
+# Data
+data/raw/*
+data/processed/*
+data/graphs/*
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Vite
+frontend/.vite/
+frontend/dist/

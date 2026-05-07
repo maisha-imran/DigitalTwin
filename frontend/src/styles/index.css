@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #030712;
+  --panel: #0a0f1e;
+  --border: #0f2040;
+  --accent: #00d4ff;
+  --green: #00ff9d;
+  --yellow: #ffd700;
+  --orange: #ff8c00;
+  --red: #ff2d55;
+  --purple: #bf5af2;
+  --text: #e2e8f0;
+  --muted: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Neon glow text utility */
+.glow-cyan  { text-shadow: 0 0 12px rgba(0,212,255,0.7); }
+.glow-green { text-shadow: 0 0 12px rgba(0,255,157,0.7); }
+.glow-red   { text-shadow: 0 0 12px rgba(255,45,85,0.7); }
+
+/* Panel card */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+/* Scanline overlay */
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.04) 2px,
+    rgba(0,0,0,0.04) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Grid background */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Animated pulse ring */
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.pulse-ring {
+  animation: pulseRing 1.8s ease-out infinite;
+}
+
+/* Fade in up */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up {
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+/* Leaflet overrides */
+.leaflet-container {
+  background: #030a18 !important;
+  font-family: 'Exo 2', sans-serif;
+}
+.leaflet-popup-content-wrapper {
+  background: #0a0f1e;
+  border: 1px solid #00d4ff44;
+  color: #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 0 20px rgba(0,212,255,0.2);
+}
+.leaflet-popup-tip { background: #0a0f1e; }
+
+/* Recharts custom */
+.recharts-cartesian-grid line { stroke: #0f2040; }
+.recharts-text { fill: #64748b !important; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
