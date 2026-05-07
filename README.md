@@ -65,10 +65,6 @@ road-digital-twin/
 │   └── utils/
 │       ├── metrics.py
 │       └── helpers.py
-├── frontend/
-│   └── src/
-│       ├── pages/             # Dashboard · Map · Evaluation · Maintenance
-│       └── components/        # Reusable UI components
 ├── notebooks/
 │   └── Road_Digital_Twin_PI_GNN.ipynb
 └── README.md
@@ -81,8 +77,8 @@ road-digital-twin/
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/yourname/road-digital-twin
-cd road-digital-twin
+git clone https://github.com/maisha-imran/DigitalTwin
+cd DigitalTwin
 ```
 
 ### 2. Backend Setup
@@ -108,32 +104,11 @@ uvicorn main:app --reload --port 8000
 The API will be available at `http://localhost:8000`  
 Interactive docs: `http://localhost:8000/docs`
 
-### 3. Frontend Setup
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend will be at `http://localhost:5173`
-
 ---
 
 ## 🤖 Training the Model
 
-### Option A — via API (recommended for demo)
-
-With the backend running, open the Dashboard page and click **TRAIN MODEL**.  
-Or send a POST request:
-
-```bash
-curl -X POST http://localhost:8000/train \
-  -H "Content-Type: application/json" \
-  -d '{"epochs": 100, "lambda_physics": 0.3}'
-```
-
-### Option B — Google Colab (GPU training)
+### Google Colab (GPU training)
 
 1. Open `notebooks/Road_Digital_Twin_PI_GNN.ipynb` in Google Colab
 2. Runtime → Change runtime type → **T4 GPU**
@@ -155,16 +130,6 @@ curl -X POST http://localhost:8000/train \
 
 ---
 
-## 📊 Frontend Pages
-
-| Page | Description |
-|------|-------------|
-| **Dashboard** | Training metrics, loss curves, model summary, dataset stats |
-| **Prediction Map** | Leaflet map · condition colours · traffic/rainfall sliders |
-| **Evaluation** | MAE/RMSE/R² · confusion matrix · scatter · feature importance |
-| **Maintenance** | Priority table · budget summary · urgency breakdown · CSV export |
-
----
 
 ## 🧪 IRI Condition Classes
 
@@ -209,13 +174,9 @@ Total Physics Loss = λ × (mono + traffic + rain + bounds)
 
 ---
 
-## 📸 Screenshots
+## Frontend Code At
 
-> Run the project and screenshots will appear at:
-> - Dashboard: `localhost:5173/dashboard`
-> - Map: `localhost:5173/map`
-> - Evaluation: `localhost:5173/evaluation`
-> - Maintenance: `localhost:5173/maintenance`
+ https://github.com/maisha-imran/DigitalTwin-Frontend
 
 ---
 
