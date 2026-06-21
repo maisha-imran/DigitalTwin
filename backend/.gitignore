@@ -1,0 +1,4 @@
+venv/
+*.gpkg
+__pycache__/
+.env
