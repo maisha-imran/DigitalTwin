@@ -79,7 +79,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 MODEL_PATH  = os.getenv("MODEL_PATH",  "saved_models/pignn_model.pt")
 SCALER_PATH = os.getenv("SCALER_PATH", "saved_models/scaler.pkl")
-HISTORY_PATH = os.getenv("HISTORY_PATH", "saved_models/training_history.json") # Add this line
+HISTORY_PATH = os.getenv("HISTORY_PATH", "saved_models/training_history.json")
 
 # ---------------------------------------------------------------------------
 # Application state
@@ -87,8 +87,8 @@ HISTORY_PATH = os.getenv("HISTORY_PATH", "saved_models/training_history.json") #
 _state: dict = {
     "model":        None,
     "scaler":       None,
-    "df_base":      None,   # raw loaded DataFrame (pre-inference)
-    "df_inferred":  None,   # inference output (baseline)
+    "df_base":      None,   # raw loaded DataFrame (pre-inference, FULL GRAPH)
+    "df_inferred":  None,   # inference output (baseline, FILTERED FOR DASHBOARD)
     "metrics":      None,
     "confusion":    None,
     "model_ready":  False,
@@ -114,10 +114,18 @@ def _boot_model() -> None:
 
     log.info("Loading road data and running baseline inference …")
     df = load_data()
-    _state["df_base"]     = df
-    _state["df_inferred"] = run_inference(df, _state["model"], _state["scaler"])
+    _state["df_base"] = df
+    
+    # 1. Run inference on the FULL network so the GNN has proper context
+    full_inferred_df = run_inference(df, _state["model"], _state["scaler"])
+    
+    # 2. Filter down to major arteries FOR THE DASHBOARD
+    major_roads = ["motorway", "trunk", "primary", "secondary", "tertiary"]
+    arterial_df = full_inferred_df[full_inferred_df["road_type"].isin(major_roads)].copy()
+    
+    _state["df_inferred"] = arterial_df
     _state["model_ready"] = True
-    log.info("Startup complete — %d road segments loaded.", len(df))
+    log.info("Startup complete — %d arterial segments isolated from full network.", len(arterial_df))
 
 
 @asynccontextmanager
@@ -242,8 +250,8 @@ def get_metrics():
 
     # Recompute lazily if not cached
     if _state["metrics"] is None:
-        y_true = df["iri_future"].values  if "iri_future"  in df.columns else df["iri_current"].values
-        y_pred = df["iri_predicted"].values
+        y_true = np.asarray(df["iri_future"].values  if "iri_future"  in df.columns else df["iri_current"].values)
+        y_pred = np.asarray(df["iri_predicted"].values)
         _state["metrics"]  = compute_metrics(y_true, y_pred)
         _state["confusion"] = compute_confusion(y_true, y_pred)
 
@@ -317,8 +325,8 @@ def list_roads(
         "limit":    limit,
         "roads":    df_to_records(page),
         "stats": {
-            "avg_iri_predicted":    round(float(page["iri_predicted"].mean()), 3),
-            "total_repair_cost_usd": round(float(page["repair_cost_usd"].sum()), 2),
+            "avg_iri_predicted":     round(float(df["iri_predicted"].mean()), 3) if not df.empty else 0.0,
+            "total_repair_cost_usd": round(float(df["repair_cost_usd"].sum()), 2) if not df.empty else 0.0,
         },
     })
 
@@ -367,7 +375,13 @@ def predict(req: PredictRequest):
         if "age_factor" in df.columns:
             df["age_factor"] = (df["age_factor"] + req.age_offset).clip(lower=1.0, upper=4.5)
 
-        df_inferred = run_inference(df, _state["model"], _state["scaler"])
+        # Run inference on FULL graph
+        full_inferred_df = run_inference(df, _state["model"], _state["scaler"])
+        
+        # Filter down to major arteries
+        major_roads = ["motorway", "trunk", "primary", "secondary", "tertiary"]
+        df_inferred = full_inferred_df[full_inferred_df["road_type"].isin(major_roads)].copy()
+        
         _state["df_inferred"] = df_inferred
 
         return _json({
@@ -401,7 +415,13 @@ def scenario(req: ScenarioRequest):
         if "age_factor" in df.columns:
             df["age_factor"] = (df["age_factor"] + req.age_offset).clip(lower=1.0, upper=4.5)
 
-        df_scenario  = run_inference(df, _state["model"], _state["scaler"])
+        # Run inference on FULL graph
+        full_scenario_df = run_inference(df, _state["model"], _state["scaler"])
+        
+        # Filter down to major arteries
+        major_roads = ["motorway", "trunk", "primary", "secondary", "tertiary"]
+        df_scenario = full_scenario_df[full_scenario_df["road_type"].isin(major_roads)].copy()
+        
         df_baseline  = _state["df_inferred"]
         comparison   = compare_scenarios(df_baseline, df_scenario, label=req.label)
 
@@ -416,13 +436,6 @@ def budget_plan(req: BudgetRequest):
     """
     Given a budget and strategy, return the optimal set of road segments
     to prioritise for repair.
-
-    Strategies
-    ----------
-    - **worst_first**     : highest predicted IRI first
-    - **cost_effective**  : maximum IRI improvement per USD
-    - **critical_only**   : only Critical / Poor roads
-    - **length_weighted** : long, high-IRI roads first
     """
     df = _inferred_df()
     try:
@@ -442,10 +455,6 @@ def forecast(
     years:          int  = Query(5,    ge=1, le=20),
     include_roads:  bool = Query(False, description="Include per-road trajectory table (large payload)."),
 ):
-    """
-    Project IRI deterioration across the full network for each year
-    from 0 (current baseline) to `years`, using the physics deterioration model.
-    """
     df     = _inferred_df()
     result = forecast_network(df, years=years)
 
