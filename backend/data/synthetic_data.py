@@ -52,14 +52,13 @@ ROAD_DET_MULT = {
 
 # FIX: Added calibrated IRI base values per road type
 ROAD_IRI_BASE = {
-    "motorway": 1.0,
-    "trunk": 1.5,
-    "primary": 2.0,
-    "secondary": 2.8,
-    "tertiary": 3.5,
-    "residential": 4.2,
+    "motorway": 0.8,
+    "trunk": 1.0,
+    "primary": 1.2,
+    "secondary": 1.5,
+    "tertiary": 1.8,
+    "residential": 2.2,
 }
-
 
 def _iri_from_features(
     traffic: float,
@@ -69,23 +68,24 @@ def _iri_from_features(
     age_factor: float,
 ) -> float:
     """
-    Physics-consistent IRI calculation (m/km scale, good ≈ 1.5, critical ≥ 8).
-
-    FIX: Changed from multiplicative to additive formula matching notebook.
-    Each factor adds a bounded increment instead of multiplying, preventing
-    runaway saturation at IRI_MAX and producing a realistic 1–10 range.
-    FIX: IRI clamp changed from 12.0 → 10.0 to match notebook.
+    Calibrated physics-consistent IRI calculation.
+    Ensures a realistic bell curve of road conditions.
     """
     base = ROAD_IRI_BASE[road_type]
 
-    traf_effect = 1.5 * (traffic / 80000)           # 0 – 1.5
-    rain_effect = 0.8 * (rainfall / 2500)            # 0 – 0.8
-    len_effect  = 0.4 * min(length / 5000, 1.0)     # 0 – 0.4
-    age_effect  = age_factor * ROAD_DET_MULT[road_type]  # age 1–2.5 × mult
-    noise       = np.random.normal(0, 0.25)
+    # Dampen the extreme penalties
+    traf_effect = 1.0 * (traffic / 80000)          
+    rain_effect = 0.5 * (rainfall / 2500)           
+    len_effect  = 0.2 * min(length / 5000, 1.0)     
+    
+    # Age penalty only applies to the time *after* it was paved (age_factor - 1.0)
+    age_effect  = (age_factor - 1.0) * ROAD_DET_MULT.get(road_type, 1.2) * 0.8  
+    
+    # Add a slightly larger noise spread (0.3) to create a few organic "Poor" anomalies
+    noise       = np.random.normal(0, 0.3)
 
     iri = base + traf_effect + rain_effect + len_effect + age_effect + noise
-    return float(np.clip(iri, 0.5, 10.0))   # FIX: was 12.0
+    return float(np.clip(iri, 0.5, 10.0))
 
 
 def generate_synthetic_graph(
