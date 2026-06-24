@@ -12,8 +12,9 @@ from data.synthetic_data import (
 
 def load_bengaluru_geopackage(gpkg_path: str = "blr_roads_raw.gpkg") -> pd.DataFrame:
     """
-    Parses the real Bengaluru GeoPackage, filters for major transit arteries,
-    and applies physics-consistent features to align with the PI-GNN pipeline.
+    Parses the real Bengaluru GeoPackage and applies physics-consistent features 
+    to align with the PI-GNN pipeline. Retains all road segments to ensure a 
+    fully connected graph for proper message passing.
     """
     if not os.path.exists(gpkg_path):
         raise FileNotFoundError(f"Could not find the GeoPackage file at: {gpkg_path}")
@@ -23,7 +24,7 @@ def load_bengaluru_geopackage(gpkg_path: str = "blr_roads_raw.gpkg") -> pd.DataF
     
     rows = []
     print(f" Total segments in raw file: {len(gdf_edges)}")
-    print(" Filtering for major transit arteries (skipping minor residential lanes)...")
+    print(" Processing full network to preserve graph connectivity for GNN...")
     
     for idx, row in gdf_edges.iterrows():
         # 1. Parse and standardize road type classification
@@ -31,14 +32,12 @@ def load_bengaluru_geopackage(gpkg_path: str = "blr_roads_raw.gpkg") -> pd.DataF
         if isinstance(road_type, list):
             road_type = road_type[0]
             
-        # FILTER: Only process primary, secondary, tertiary, trunk, and motorways
-        # This keeps the dashboard statistics balanced and focused on key corridors
-        if road_type not in ["motorway", "trunk", "primary", "secondary", "tertiary"]:
-            continue
+        # FIX: The filter blocking minor residential lanes has been removed.
+        # The GNN needs these edges to prevent disconnected nodes and overfitting.
 
         # 2. Extract topological node mapping
         u_node = row.get("u", idx)
-        v_node = row.get("v", idx + 1)
+        v_node = row.get("v", str(idx + 1) if isinstance(idx, int) else f"{idx}_1")
         length = float(row.get("length", 100.0))
         
         # 3. Clean up messy lane formats like "['3', '4']", None, or comma-separated lists
@@ -78,7 +77,7 @@ def load_bengaluru_geopackage(gpkg_path: str = "blr_roads_raw.gpkg") -> pd.DataF
             0.25 * (rainfall_mm / 2500)       +
             0.15 * (age_factor - 1.0)         +
             0.10 * min(length / 5000, 1.0)    +
-            0.05 * ROAD_DET_MULT[road_type]
+            0.05 * ROAD_DET_MULT.get(road_type, 1.40) # Default to residential multiplier
         )
         det_rate = float(np.clip(det_rate * 1.5, 0.05, 1.5))
         
@@ -98,7 +97,7 @@ def load_bengaluru_geopackage(gpkg_path: str = "blr_roads_raw.gpkg") -> pd.DataF
             "lat":            centroid.y,
             "lon":            centroid.x,
             "road_type":      road_type,
-            "road_type_id":   ROAD_TYPE_IDS[road_type],
+            "road_type_id":   ROAD_TYPE_IDS.get(road_type, ROAD_TYPE_IDS["residential"]),
             "lanes":          lanes,
             "traffic_volume": traffic_volume,
             "rainfall_mm":    rainfall_mm,
@@ -111,10 +110,10 @@ def load_bengaluru_geopackage(gpkg_path: str = "blr_roads_raw.gpkg") -> pd.DataF
 
     df = pd.DataFrame(rows)
     df = add_derived_columns(df)
-    print(f" Ingestion successful! Target arterial dataframe generated with shape: {df.shape}")
+    print(f" Ingestion successful! Full network dataframe generated with shape: {df.shape}")
     return df
 
 if __name__ == "__main__":
     df = load_bengaluru_geopackage("blr_roads_raw.gpkg")
-    print("\nFirst 5 Rows of Parsed Arterial Highways:")
+    print("\nFirst 5 Rows of Parsed Network:")
     print(df[["edge_id", "road_type", "lanes", "iri_current", "repair_cost_usd"]].head())
